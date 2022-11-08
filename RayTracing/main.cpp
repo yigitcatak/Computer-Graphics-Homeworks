@@ -1,12 +1,13 @@
+#include "Utility.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <memory>
 #include <glm/geometric.hpp>
-#include "utils.hpp"
 #include "Camera.hpp"
 #include "Ray.hpp"
 #include "Sphere.hpp"
+#include "Material.hpp"
 
 glm::vec3 ray_color(const Ray &ray, const std::vector<std::shared_ptr<Hittable>> &objects, int depth)
 {
@@ -14,9 +15,11 @@ glm::vec3 ray_color(const Ray &ray, const std::vector<std::shared_ptr<Hittable>>
         return glm::vec3(0);
 
     hitRecord closestRecord;
-    if (getClosestHittable(ray, objects, closestRecord, 0))
+    if (getClosestHittable(ray, objects, closestRecord, 0.001))
     {
-        return 0.5 * (closestRecord.surface_normal + glm::vec3(1));
+        glm::vec3 color = closestRecord.material_ptr->getColor();
+        Ray reflectedRay = closestRecord.material_ptr->getReflection(ray.getDir(), closestRecord.surface_normal, closestRecord.P);
+        return color * ray_color(reflectedRay,objects,depth-1);
     }
 
     glm::vec3 dir = ray.getDir();
@@ -31,8 +34,8 @@ int main(int argc, char const *argv[])
     const float aspect_ratio = 16.0 / 9.0;
     const int image_width = 800, image_height = image_width / aspect_ratio;
     std::ofstream image_file("output.ppm");
-    const int sample_size = 10; // for antialiasing
-    const int max_depth = 50;  // for shadows
+    const int sample_size = 50; // for antialiasing
+    const int max_depth = 100;  // for shadows
 
     image_file << "P3\n"
               << image_width << ' ' << image_height << "\n255\n";
@@ -43,18 +46,20 @@ int main(int argc, char const *argv[])
     Camera camera(camera_origin, wpWidth, wpHeight, focalLen, aspect_ratio);
 
     // Materials
-    auto mat = std::make_shared<Lambertian>(glm::vec3(1));
+    auto pink = std::make_shared<Lambertian>(glm::vec3(0.7, 0.3, 0.3));
+    auto green = std::make_shared<Lambertian>(glm::vec3(0.8, 0.8, 0.0));
+    auto metal = std::make_shared<Metal>(glm::vec3(0.5, 0.5, 0.5));
 
     // World
     std::vector<std::shared_ptr<Hittable>> objects;
 
-    Sphere sphere(glm::vec3(0, 0, -2), 0.5, mat);
-    Sphere sphere2(glm::vec3(0.8, 0, -2), 0.5, mat);
-    Sphere sphere3(glm::vec3(-2, 0, -3), 1, mat);
+    Sphere sphere(glm::vec3(0, 0, -2), 0.5, pink);
+    Sphere sphere2(glm::vec3(0.5, 0, -1.5), 0.5, metal);
+    Sphere ground(glm::vec3(0, -100.5, -1), 100, green);
+    objects.push_back(std::make_shared<Sphere>(ground));
     objects.push_back(std::make_shared<Sphere>(sphere));
     objects.push_back(std::make_shared<Sphere>(sphere2));
-    objects.push_back(std::make_shared<Sphere>(sphere3));
-
+    
     // Render
     for (int j = image_height - 1; j >= 0; --j)
     {
@@ -62,12 +67,11 @@ int main(int argc, char const *argv[])
         for (int i = 0; i < image_width; ++i)
         {
             glm::vec3 pixel_color(0);
-            // antialiasing
             for (int s = 0; s < sample_size; s++)
             {
                 auto scaling = 1.0 / sample_size;
-                float u = ((i + random_double()) / (image_width - 1.0)) * wpWidth;
-                float v = ((j + random_double()) / (image_height - 1.0)) * wpHeight;
+                float u = ((i + randomDouble()) / (image_width - 1.0)) * wpWidth;
+                float v = ((j + randomDouble()) / (image_height - 1.0)) * wpHeight;
                 Ray ray = camera.getRay(u, v);
                 glm::vec3 color = ray_color(ray, objects, max_depth);
                 pixel_color += color;

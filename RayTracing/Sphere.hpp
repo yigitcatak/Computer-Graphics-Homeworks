@@ -47,6 +47,7 @@ bool Sphere::isHit(const Ray &r, const double threshold, hitRecord& record) cons
     record.P = r.at(root);
     glm::vec3 normal = (record.P - center)/radius;
     record.setFaceNormal(r, normal);
+    record.material_ptr = material_ptr;
     return true;
 }
 

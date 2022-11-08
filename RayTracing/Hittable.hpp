@@ -7,8 +7,7 @@ class Hittable;
 
 struct hitRecord
 {
-    std::shared_ptr<Hittable> object;
-
+    std::shared_ptr<Material> material_ptr;
     glm::vec3 P;
     float t;
 
